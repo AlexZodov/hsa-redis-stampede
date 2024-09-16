@@ -1,0 +1,103 @@
+version: "3.7"
+
+services:
+    hsa_redis_stampede_server:
+        container_name: hsa_redis_stampede_server
+        build: ./server
+        expose:
+            - 3000
+        ports:
+            - 0.0.0.0:9999:3000
+            - 0.0.0.0:9998:9249
+        command: npm run start:debug
+        volumes:
+            - ./server:/usr/src/app
+        networks:
+            hsa_redis_stampede_net:
+                ipv4_address: 172.16.123.10
+    
+    hsa_redis_stampede_redis_master:
+        image:          redis:latest
+        container_name: hsa_redis_stampede_redis_master
+        ports:
+            - '8379:6379'
+        volumes:
+            - redis-master-data:/data
+        command: [ 'redis-server', '--appendonly', 'yes', '--maxmemory', '500mb', '--maxmemory-policy', 'allkeys-lru' ]
+        networks:
+            hsa_redis_stampede_net:
+                ipv4_address: 172.16.123.9
+    
+    hsa_redis_stampede_redis_redis_slave1:
+        image:          redis:latest
+        container_name: hsa_redis_stampede_redis_redis_slave1
+        depends_on:
+            - hsa_redis_stampede_redis_master
+        environment:
+            - REDIS_REPLICATION_MODE=slave
+            - REDIS_MASTER_HOST=redis-master
+            - REDIS_MASTER_PORT=6379
+        ports:
+            - '6380:6379'
+        volumes:
+            - redis-slave1-data:/data
+        command:
+          [
+              'redis-server',
+              '--slaveof',
+              'hsa_redis_stampede_redis_master',
+              '6379',
+              '--appendonly',
+              'yes',
+              '--maxmemory',
+              '500mb',
+              '--maxmemory-policy',
+              'allkeys-lru',
+          ]
+        networks:
+            hsa_redis_stampede_net:
+                ipv4_address: 172.16.123.12
+    
+    hsa_redis_stampede_redis_redis_slave2:
+        image:          redis:latest
+        container_name: hsa_redis_stampede_redis_redis_slave2
+        depends_on:
+            - hsa_redis_stampede_redis_master
+        environment:
+            - REDIS_REPLICATION_MODE=slave
+            - REDIS_MASTER_HOST=redis-master
+            - REDIS_MASTER_PORT=6379
+        ports:
+            - '6381:6379'
+        volumes:
+            - redis-slave2-data:/data
+        command:
+          [
+              'redis-server',
+              '--slaveof',
+              'hsa_redis_stampede_redis_master',
+              '6379',
+              '--appendonly',
+              'yes',
+              '--maxmemory',
+              '500mb',
+              '--maxmemory-policy',
+              'allkeys-lru',
+          ]
+        networks:
+            hsa_redis_stampede_net:
+                ipv4_address: 172.16.123.13
+
+networks:
+    hsa_redis_stampede_net:
+        name: hsa_redis_stampede_net
+        ipam:
+            driver: default
+            config:
+            - subnet: 172.16.123.0/24
+
+volumes:
+    hsa_redis_stampede_db: {}
+    redis-master-data:
+    redis-slave1-data:
+    redis-slave2-data:
